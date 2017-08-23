@@ -1,0 +1,25 @@
+{
+  "name": "satellite",
+  "version": "1.0.0",
+  "description": "Web server for satellite LED hosts",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wilsontr/agaric.git"
+  },
+  "author": "Trevor Wilson",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/wilsontr/agaric/issues"
+  },
+  "homepage": "https://github.com/wilsontr/agaric#readme",
+  "dependencies": {
+    "body-parser": "^1.17.2",
+    "express": "^4.15.4",
+    "lodash": "^4.17.4",
+    "serialport": "^5.0.0"
+  }
+}
