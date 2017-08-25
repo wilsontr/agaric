@@ -1,10 +1,24 @@
+#include <WebSocketsServer.h>
+
 #include <Adafruit_NeoPixel.h>
+#include <ESP8266WiFi.h>
+#include <Hash.h>
+
+
+
 
 #ifdef __AVR__
   #include <avr/power.h>
 #endif
 
-#define PIN 6
+#define PIN 13
+
+WiFiClient client;
+WebSocketsServer webSocket = WebSocketsServer(81);
+IPAddress ip(192, 168, 0, 177);  
+IPAddress gateway(192, 168, 0, 1);
+IPAddress subnet(255, 255, 255, 0);
+
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -14,7 +28,7 @@
 //   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 //   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(24, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(7, PIN, NEO_GRB + NEO_KHZ800);
 
 const int bufferSize = 20;
 char charBuffer[bufferSize];
@@ -23,23 +37,109 @@ int wait = 50;
 int r = 255, g = 0, b = 0;
 int commandReceived = 1;
 
-void setup() {
-  Serial.begin(57600);
-  Serial.setTimeout(50);
-  strip.begin();
-  strip.show(); // Initialize all pixels to 'off'
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
+    switch(type) {
+        case WStype_DISCONNECTED:
+            Serial.printf("[%u] Disconnected!\n", num);
+            break;
+        case WStype_CONNECTED:
+            {
+                IPAddress ip = webSocket.remoteIP(num);
+                Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+        
+        // send message to client
+        webSocket.sendTXT(num, "Connected");
+            }
+            break;
+        case WStype_TEXT:
+            Serial.printf("[%u] get Text: %s\n", num, payload);
+
+            // send message to client
+            // webSocket.sendTXT(num, "message here");
+
+            // send data to all connected clients
+            // webSocket.broadcastTXT("message here");
+            break;
+        case WStype_BIN:
+            Serial.printf("[%u] get binary length: %u\n", num, length);
+            hexdump(payload, length);
+
+            // send message to client
+            // webSocket.sendBIN(num, payload, length);
+            break;
+    }
 }
 
-void loop() {
-  int colors[3];
-  int colorIndex = 0;  
+void setup() {
+  Serial.begin(115200);
+  Serial.setTimeout(50);
 
-  while(Serial.available()) {
+  Serial.print("Connecting to Wifi");
+  WiFi.begin("ssid", "pass");
+  WiFi.config(ip, gateway, subnet);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(100);
+    Serial.print(".");
+  }
+  Serial.println("WiFi connected");
+
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP()); 
+
+  /*
+  // Connect to the websocket server
+  if (client.connect("echo.websocket.org", 80)) {
+    Serial.println("Connected");
+  } else {
+    Serial.println("Connection failed.");
+    while(1) {
+      // Hang on failure
+    }
+  } 
+  */   
+
+
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);  
+    
+  strip.begin();
+  strip.show(); // Initialize all pixels to 'off'
+  Serial.println("Booted");
+}
+
+unsigned long startMillis, stopMillis, totalMillis;
+
+int colors[3];
+int colorIndex = 0;  
+
+
+void loop() {
+  String data;
+  webSocket.loop();
+
+  if (client.connected()) {
+    
+  
+  }
+  /*
+  while(Serial.available() && !commandReceived ) {
+
+    Serial.println("Start read");
+    startMillis = millis();
     
     byteCount = -1;
     byteCount = Serial.readBytesUntil('\n', charBuffer, bufferSize);
+
+    stopMillis = millis();
+
+    Serial.print("Total read time: ");
+    Serial.println(stopMillis - startMillis);
+
     char* command = strtok(charBuffer, " ");
 
+    Serial.println("Start parse"); 
+    startMillis = millis();
     if ( strcmp(command, "color") == 0 ) {
       command = strtok(0, ",");
       while ( command != 0 ) {
@@ -55,9 +155,16 @@ void loop() {
       Serial.println(wait);
       commandReceived = 1;
     }
-    
+   
+    stopMillis = millis();
+
+    Serial.println("Finish parse");
     Serial.flush();
+
+    Serial.print("Total parse time: ");
+    Serial.println(stopMillis - startMillis);
   }
+  */
 
   if ( colorIndex > 0 ) {
     Serial.print("R ");
@@ -69,6 +176,7 @@ void loop() {
     Serial.print(" B ");
     Serial.println(colors[2]);
     b = colors[2];
+    colorIndex = 0;
   }
 
   if ( commandReceived ) {
